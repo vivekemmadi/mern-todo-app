@@ -1,0 +1,118 @@
+/*
+MERN To-Do App: Backend (Node.js + Express + MongoDB)
+*/
+
+import express from 'express';
+import mongoose from 'mongoose';
+import cors from 'cors';
+import bodyParser from 'body-parser';
+
+const app = express();
+const PORT = 5000;
+
+// Middleware
+app.use(cors());
+app.use(bodyParser.json());
+
+// MongoDB Connection
+mongoose.connect('your_mongodb_connection_string', {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+}).then(() => console.log("MongoDB Connected")).catch(err => console.log(err));
+
+// Mongoose Schema
+const TodoSchema = new mongoose.Schema({
+  text: String
+});
+
+const Todo = mongoose.model('Todo', TodoSchema);
+
+// Routes
+app.get('/todos', async (req, res) => {
+  try {
+    const todos = await Todo.find();
+    res.json(todos);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.post('/todos', async (req, res) => {
+  try {
+    const newTodo = new Todo({ text: req.body.text });
+    await newTodo.save();
+    res.json(newTodo);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.delete('/todos/:id', async (req, res) => {
+  try {
+    await Todo.findByIdAndDelete(req.params.id);
+    res.json({ message: "Todo deleted" });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+/*
+MERN To-Do App: Frontend (React)
+*/
+
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
+
+const App = () => {
+  const [todos, setTodos] = useState([]);
+  const [text, setText] = useState('');
+
+  useEffect(() => {
+    axios.get('http://localhost:5000/todos')
+      .then(res => setTodos(res.data))
+      .catch(err => console.error("Error fetching todos:", err));
+  }, []);
+
+  const addTodo = async () => {
+    try {
+      const res = await axios.post('http://localhost:5000/todos', { text });
+      setTodos([...todos, res.data]);
+      setText('');
+    } catch (err) {
+      console.error("Error adding todo:", err);
+    }
+  };
+
+  const deleteTodo = async (id) => {
+    try {
+      await axios.delete(`http://localhost:5000/todos/${id}`);
+      setTodos(todos.filter(todo => todo._id !== id));
+    } catch (err) {
+      console.error("Error deleting todo:", err);
+    }
+  };
+
+  return (
+    <div style={{ textAlign: 'center', marginTop: '50px' }}>
+      <h1>To-Do App</h1>
+      <input 
+        type="text" 
+        value={text} 
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Enter a to-do"
+      />
+      <button onClick={addTodo}>Add</button>
+      <ul>
+        {todos.map(todo => (
+          <li key={todo._id}>
+            {todo.text} <button onClick={() => deleteTodo(todo._id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default App;
